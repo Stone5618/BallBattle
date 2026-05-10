@@ -3,9 +3,13 @@ package com.ballbattle;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.utils.Array;
 
 /**
  * 主游戏类 - LibGDX游戏入口
@@ -46,23 +50,58 @@ public class BallBattleGame extends Game {
         batch = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
 
-        // 使用默认BitmapFont（不依赖外部字体文件）
-        font = new BitmapFont();
-        font.setColor(Color.WHITE);
-
-        fontLarge = new BitmapFont();
-        fontLarge.setColor(Color.WHITE);
-        fontLarge.getData().scale(2f);
+        // 创建自定义字体 - 使用 Pixmap 生成简单字体纹理
+        font = createSimpleFont(16, Color.WHITE);
+        fontLarge = createSimpleFont(32, Color.WHITE);
 
         setScreen(new MainMenuScreen(this));
+    }
+
+    /**
+     * 创建简单的位图字体（不依赖外部字体文件）
+     */
+    private BitmapFont createSimpleFont(int size, Color color) {
+        int cellWidth = size;
+        int cellHeight = size + 4;
+        int cols = 16;
+        int rows = 6;
+        
+        Pixmap pixmap = new Pixmap(cellWidth * cols, cellHeight * rows, Pixmap.Format.RGBA8888);
+        pixmap.setColor(0, 0, 0, 0);
+        pixmap.fill();
+        
+        pixmap.setColor(color);
+        
+        for (int i = 0; i < 96; i++) {
+            int x = (i % cols) * cellWidth;
+            int y = (i / cols) * cellHeight;
+            pixmap.drawRectangle(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+            pixmap.fillRectangle(x + 3, y + 3, cellWidth - 6, cellHeight - 6);
+        }
+        
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        
+        TextureRegion region = new TextureRegion(texture);
+        Array<TextureRegion> regions = new Array<TextureRegion>();
+        regions.add(region);
+        
+        BitmapFont font = new BitmapFont(
+            new BitmapFont.BitmapFontData(), 
+            regions, 
+            false
+        );
+        font.setColor(color);
+        
+        return font;
     }
 
     @Override
     public void dispose() {
         batch.dispose();
         shapeRenderer.dispose();
-        font.dispose();
-        fontLarge.dispose();
+        if (font != null) font.dispose();
+        if (fontLarge != null) fontLarge.dispose();
     }
 
     @Override
