@@ -54,7 +54,12 @@ public class Player {
         this.mass = radius * radius;
         this.name = name;
         this.skinIndex = skinIndex;
-        this.color = colorFromHex(BallBattleGame.SKIN_COLORS[skinIndex % BallBattleGame.SKIN_COLORS.length]);
+        String[] colors = BallBattleGame.SKIN_COLORS;
+        if (colors != null && colors.length > 0) {
+            this.color = colorFromHex(colors[Math.abs(skinIndex) % colors.length]);
+        } else {
+            this.color = Color.WHITE;
+        }
         this.alive = true;
         this.team = -1;
         this.score = 0;
@@ -89,7 +94,9 @@ public class Player {
         survivalTime += delta;
 
         // 计算速度（越大越慢）
-        float speed = baseSpeed * (1.0f / (float) Math.sqrt(radius / INITIAL_RADIUS));
+        float radiusRatio = radius / INITIAL_RADIUS;
+        if (radiusRatio <= 0.01f) radiusRatio = 0.01f;
+        float speed = baseSpeed * (1.0f / (float) Math.sqrt(radiusRatio));
         if (boosting && mass > INITIAL_RADIUS * INITIAL_RADIUS * 0.5f) {
             speed *= BOOST_MULTIPLIER;
             // 加速消耗质量
@@ -241,10 +248,17 @@ public class Player {
      * 从十六进制颜色字符串创建Color
      */
     public static Color colorFromHex(String hex) {
-        int r = Integer.parseInt(hex.substring(0, 2), 16);
-        int g = Integer.parseInt(hex.substring(2, 4), 16);
-        int b = Integer.parseInt(hex.substring(4, 6), 16);
-        return new Color(r / 255f, g / 255f, b / 255f, 1f);
+        if (hex == null || hex.length() < 6) {
+            return Color.WHITE;
+        }
+        try {
+            int r = Integer.parseInt(hex.substring(0, 2), 16);
+            int g = Integer.parseInt(hex.substring(2, 4), 16);
+            int b = Integer.parseInt(hex.substring(4, 6), 16);
+            return new Color(r / 255f, g / 255f, b / 255f, 1f);
+        } catch (Exception e) {
+            return Color.WHITE;
+        }
     }
 
     public float getVx() { return vx; }

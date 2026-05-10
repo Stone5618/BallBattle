@@ -283,8 +283,12 @@ public class AIBall extends Player {
      */
     private void pickRandomWanderTarget() {
         float range = 500f;
-        targetX = MathUtils.clamp(x + MathUtils.random(-range, range), radius, worldWidth - radius);
-        targetY = MathUtils.clamp(y + MathUtils.random(-range, range), radius, worldHeight - radius);
+        float minX = radius;
+        float maxX = Math.max(radius, worldWidth - radius);
+        float minY = radius;
+        float maxY = Math.max(radius, worldHeight - radius);
+        targetX = MathUtils.clamp(x + MathUtils.random(-range, range), minX, maxX);
+        targetY = MathUtils.clamp(y + MathUtils.random(-range, range), minY, maxY);
     }
 
     private float angleTo(float tx, float ty) {
