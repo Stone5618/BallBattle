@@ -1,192 +1,212 @@
 package com.ballbattle;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 /**
- * 游戏结束界面 - 显示本局得分、最大体积、存活时间
+ * 游戏结束屏幕 - 显示最终分数，提供重新开始和返回按钮
  */
-public class GameOverScreen implements Screen {
+public class GameOverScreen implements Screen, InputProcessor {
 
     private BallBattleGame game;
-    private OrthographicCamera camera;
-    private GlyphLayout glyphLayout;
+    private ShapeRenderer shapeRenderer;
+    private int screenWidth;
+    private int screenHeight;
+    private boolean initialized;
+    private int finalScore;
+    private float animTimer;
 
-    private int score;
-    private int maxRadius;
-    private float survivalTime;
-    private int gameMode;
-
-    // 按钮区域
+    // 按钮
     private float restartBtnX, restartBtnY, restartBtnW, restartBtnH;
     private float menuBtnX, menuBtnY, menuBtnW, menuBtnH;
 
-    // 动画
-    private float fadeTimer;
-    private static final float FADE_DURATION = 0.5f;
+    // 颜色
+    private static final Color BG_COLOR = new Color(0.05f, 0.02f, 0.02f, 1f);
+    private static final Color SCORE_BG = new Color(0f, 0f, 0f, 0.5f);
+    private static final Color SCORE_COLOR = new Color(1f, 1f, 1f, 1f);
+    private static final Color RESTART_COLOR = new Color(0.2f, 0.7f, 0.2f, 1f);
+    private static final Color MENU_COLOR = new Color(0.5f, 0.5f, 0.5f, 1f);
+    private static final Color TITLE_COLOR = new Color(1f, 0.3f, 0.3f, 1f);
 
-    public GameOverScreen(BallBattleGame game, int score, int maxRadius, float survivalTime, int gameMode) {
+    public GameOverScreen(BallBattleGame game, int finalScore) {
         this.game = game;
-        this.score = score;
-        this.maxRadius = maxRadius;
-        this.survivalTime = survivalTime;
-        this.gameMode = gameMode;
-        this.fadeTimer = 0;
-        this.glyphLayout = new GlyphLayout();
-
-        camera = new OrthographicCamera();
-        camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-
-        // 计算按钮布局
-        float sw = Gdx.graphics.getWidth();
-        float sh = Gdx.graphics.getHeight();
-        float btnWidth = sw * 0.45f;
-        float btnHeight = sh * 0.07f;
-        float centerX = sw / 2f;
-
-        restartBtnW = btnWidth;
-        restartBtnH = btnHeight;
-        restartBtnX = centerX - btnWidth / 2f;
-        restartBtnY = sh * 0.25f;
-
-        menuBtnW = btnWidth;
-        menuBtnH = btnHeight;
-        menuBtnX = centerX - btnWidth / 2f;
-        menuBtnY = sh * 0.15f;
-    }
-
-    @Override
-    public void render(float delta) {
-        fadeTimer += delta;
-        float alpha = Math.min(1f, fadeTimer / FADE_DURATION);
-
-        Gdx.gl.glClearColor(0.05f, 0.05f, 0.1f, 1f);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-
-        float sw = Gdx.graphics.getWidth();
-        float sh = Gdx.graphics.getHeight();
-        float centerX = sw / 2f;
-
-        // 背景装饰
-        game.shapeRenderer.setProjectionMatrix(camera.combined);
-        game.shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        game.shapeRenderer.setColor(0.1f, 0.1f, 0.2f, 0.5f * alpha);
-        game.shapeRenderer.circle(centerX, sh * 0.55f, 200);
-        game.shapeRenderer.end();
-
-        // 绘制按钮
-        game.shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-
-        // 重新开始按钮
-        game.shapeRenderer.setColor(0.2f, 0.7f, 0.2f, alpha);
-        game.shapeRenderer.rect(restartBtnX, restartBtnY, restartBtnW, restartBtnH);
-        // 高光
-        game.shapeRenderer.setColor(1, 1, 1, 0.15f * alpha);
-        game.shapeRenderer.rect(restartBtnX, restartBtnY + restartBtnH * 0.6f, restartBtnW, restartBtnH * 0.35f);
-
-        // 返回菜单按钮
-        game.shapeRenderer.setColor(0.3f, 0.3f, 0.7f, alpha);
-        game.shapeRenderer.rect(menuBtnX, menuBtnY, menuBtnW, menuBtnH);
-        game.shapeRenderer.setColor(1, 1, 1, 0.15f * alpha);
-        game.shapeRenderer.rect(menuBtnX, menuBtnY + menuBtnH * 0.6f, menuBtnW, menuBtnH * 0.35f);
-
-        game.shapeRenderer.end();
-
-        // 绘制文字
-        game.batch.setProjectionMatrix(camera.combined);
-        game.batch.begin();
-
-        // 标题
-        game.fontLarge.setColor(1, 1, 1, alpha);
-        String title = "游戏结束";
-        glyphLayout.setText(game.fontLarge, title);
-        game.fontLarge.draw(game.batch, title, centerX - glyphLayout.width / 2f, sh * 0.82f);
-
-        // 分割线
-        game.shapeRenderer.setProjectionMatrix(camera.combined);
-        game.shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        game.shapeRenderer.setColor(1, 1, 1, 0.3f * alpha);
-        game.shapeRenderer.rect(centerX - 120, sh * 0.77f, 240, 2);
-        game.shapeRenderer.end();
-
-        game.batch.setProjectionMatrix(camera.combined);
-        game.batch.begin();
-
-        // 模式名称
-        String modeName;
-        switch (gameMode) {
-            case BallBattleGame.MODE_FFA: modeName = "自由模式"; break;
-            case BallBattleGame.MODE_TEAMS: modeName = "团队模式"; break;
-            case BallBattleGame.MODE_SURVIVAL: modeName = "生存模式"; break;
-            default: modeName = "";
-        }
-        game.font.setColor(Color.YELLOW);
-        game.font.setColor(game.font.getColor().r, game.font.getColor().g, game.font.getColor().b, alpha);
-        glyphLayout.setText(game.font, modeName);
-        game.font.draw(game.batch, modeName, centerX - glyphLayout.width / 2f, sh * 0.72f);
-
-        // 统计信息
-        float infoY = sh * 0.62f;
-        float infoSpacing = sh * 0.06f;
-
-        game.font.setColor(1, 1, 1, alpha);
-        drawStatLine(centerX, infoY, "得分", String.valueOf(score), alpha);
-        drawStatLine(centerX, infoY - infoSpacing, "最大体积", String.valueOf(maxRadius), alpha);
-
-        int minutes = (int) (survivalTime / 60);
-        int seconds = (int) (survivalTime % 60);
-        drawStatLine(centerX, infoY - infoSpacing * 2, "存活时间",
-                String.format("%d分%02d秒", minutes, seconds), alpha);
-
-        // 按钮文字
-        game.font.setColor(1, 1, 1, alpha);
-        String restartText = "重新开始";
-        glyphLayout.setText(game.font, restartText);
-        game.font.draw(game.batch, restartText,
-                restartBtnX + (restartBtnW - glyphLayout.width) / 2f,
-                restartBtnY + (restartBtnH + glyphLayout.height) / 2f);
-
-        String menuText = "返回主菜单";
-        glyphLayout.setText(game.font, menuText);
-        game.font.draw(game.batch, menuText,
-                menuBtnX + (menuBtnW - glyphLayout.width) / 2f,
-                menuBtnY + (menuBtnH + glyphLayout.height) / 2f);
-
-        game.batch.end();
-    }
-
-    private void drawStatLine(float centerX, float y, String label, String value, float alpha) {
-        game.font.setColor(0.7f, 0.7f, 0.7f, alpha);
-        String labelText = label + ": ";
-        glyphLayout.setText(game.font, labelText);
-        game.font.draw(game.batch, labelText, centerX - 80, y);
-
-        game.font.setColor(Color.WHITE);
-        game.font.setColor(game.font.getColor().r, game.font.getColor().g, game.font.getColor().b, alpha);
-        game.font.draw(game.batch, value, centerX - 80 + glyphLayout.width, y);
-    }
-
-    @Override
-    public void resize(int width, int height) {
-        camera.setToOrtho(false, width, height);
+        this.finalScore = finalScore;
+        this.shapeRenderer = new ShapeRenderer();
+        this.initialized = false;
+        this.animTimer = 0;
     }
 
     @Override
     public void show() {
-        Gdx.input.setInputProcessor(new com.badlogic.gdx.InputAdapter() {
-            @Override
-            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-                GameOverScreen.this.touchDown(screenX, screenY, pointer, button);
-                return true;
-            }
-        });
+        Gdx.input.setInputProcessor(this);
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        if (width <= 0 || height <= 0) return;
+        this.screenWidth = width;
+        this.screenHeight = height;
+        this.initialized = true;
+
+        float btnW = Math.min(250f, width * 0.6f);
+        float btnH = Math.min(55f, height * 0.07f);
+        float centerX = (width - btnW) * 0.5f;
+
+        restartBtnW = btnW;
+        restartBtnH = btnH;
+        restartBtnX = centerX;
+        restartBtnY = height * 0.35f;
+
+        menuBtnW = btnW;
+        menuBtnH = btnH;
+        menuBtnX = centerX;
+        menuBtnY = height * 0.35f - btnH - 20f;
+    }
+
+    @Override
+    public void render(float delta) {
+        if (!initialized) return;
+        delta = Math.min(delta, 0.05f);
+        animTimer += delta;
+
+        // 清屏
+        Gdx.gl.glClearColor(BG_COLOR.r, BG_COLOR.g, BG_COLOR.b, 1f);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        // 标题区域（红色大圆 = 游戏结束标志）
+        float titleY = screenHeight * 0.7f;
+        float pulse = 1f + 0.05f * (float) Math.sin(animTimer * 3f);
+        shapeRenderer.setColor(TITLE_COLOR);
+        shapeRenderer.circle(screenWidth * 0.5f, titleY, 40f * pulse);
+        // 内部X标记
+        shapeRenderer.setColor(1f, 1f, 1f, 0.8f);
+        float xSize = 15f * pulse;
+        shapeRenderer.rect(screenWidth * 0.5f - xSize, titleY - 2f, xSize * 2, 4f);
+        shapeRenderer.rect(screenWidth * 0.5f - 2f, titleY - xSize, 4f, xSize * 2);
+
+        // 分数背景
+        float scoreBoxW = Math.min(300f, screenWidth * 0.7f);
+        float scoreBoxH = 80f;
+        float scoreBoxX = (screenWidth - scoreBoxW) * 0.5f;
+        float scoreBoxY = screenHeight * 0.5f;
+        shapeRenderer.setColor(SCORE_BG);
+        shapeRenderer.rect(scoreBoxX, scoreBoxY, scoreBoxW, scoreBoxH);
+
+        // 分数标签（黄色方块）
+        shapeRenderer.setColor(1f, 1f, 0f, 1f);
+        shapeRenderer.rect(scoreBoxX + 15f, scoreBoxY + scoreBoxH - 25f, 10f, 10f);
+
+        // 分数数字
+        float pixelSize = Math.min(8f, scoreBoxW * 0.04f);
+        PixelDrawer.drawNumber(shapeRenderer, finalScore,
+                scoreBoxX + scoreBoxW * 0.5f, scoreBoxY + scoreBoxH * 0.35f,
+                pixelSize, SCORE_COLOR);
+
+        // 重新开始按钮
+        shapeRenderer.setColor(0f, 0f, 0f, 0.3f);
+        shapeRenderer.rect(restartBtnX + 3f, restartBtnY - 3f, restartBtnW, restartBtnH);
+        shapeRenderer.setColor(RESTART_COLOR);
+        shapeRenderer.rect(restartBtnX, restartBtnY, restartBtnW, restartBtnH);
+        shapeRenderer.setColor(1f, 1f, 1f, 0.15f);
+        shapeRenderer.rect(restartBtnX, restartBtnY + restartBtnH * 0.6f, restartBtnW, restartBtnH * 0.4f);
+        // 图标：圆形箭头（简化为圆+线）
+        shapeRenderer.setColor(1f, 1f, 1f, 0.8f);
+        float iconCX = restartBtnX + 30f;
+        float iconCY = restartBtnY + restartBtnH * 0.5f;
+        shapeRenderer.circle(iconCX, iconCY, 10f);
+
+        // 返回菜单按钮
+        shapeRenderer.setColor(0f, 0f, 0f, 0.3f);
+        shapeRenderer.rect(menuBtnX + 3f, menuBtnY - 3f, menuBtnW, menuBtnH);
+        shapeRenderer.setColor(MENU_COLOR);
+        shapeRenderer.rect(menuBtnX, menuBtnY, menuBtnW, menuBtnH);
+        shapeRenderer.setColor(1f, 1f, 1f, 0.15f);
+        shapeRenderer.rect(menuBtnX, menuBtnY + menuBtnH * 0.6f, menuBtnW, menuBtnH * 0.4f);
+        // 图标：小房子（简化为矩形+三角）
+        shapeRenderer.setColor(1f, 1f, 1f, 0.8f);
+        float hIconCX = menuBtnX + 30f;
+        float hIconCY = menuBtnY + menuBtnH * 0.5f;
+        shapeRenderer.rect(hIconCX - 8f, hIconCY - 8f, 16f, 12f);
+        shapeRenderer.rect(hIconCX - 4f, hIconCY - 4f, 4f, 8f);
+
+        shapeRenderer.end();
+    }
+
+    @Override
+    public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        if (pointer != 0 || !initialized) return false;
+
+        float touchYConverted = screenHeight - screenY;
+
+        // 重新开始按钮
+        if (screenX >= restartBtnX && screenX <= restartBtnX + restartBtnW
+                && touchYConverted >= restartBtnY && touchYConverted <= restartBtnY + restartBtnH) {
+            game.setScreen(new GameScreen(game, 0));
+            return true;
+        }
+
+        // 返回菜单按钮
+        if (screenX >= menuBtnX && screenX <= menuBtnX + menuBtnW
+                && touchYConverted >= menuBtnY && touchYConverted <= menuBtnY + menuBtnH) {
+            game.setScreen(new MainMenuScreen(game));
+            return true;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+        return false;
+    }
+
+    @Override
+    public boolean touchDragged(int screenX, int screenY, int pointer) {
+        return false;
+    }
+
+    @Override
+    public boolean mouseMoved(int screenX, int screenY) {
+        return false;
+    }
+
+    @Override
+    public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
+        return true;
+    }
+
+    @Override
+    public boolean keyDown(int keycode) {
+        if (keycode == com.badlogic.gdx.Input.Keys.ENTER) {
+            game.setScreen(new GameScreen(game, 0));
+            return true;
+        }
+        if (keycode == com.badlogic.gdx.Input.Keys.ESCAPE || keycode == com.badlogic.gdx.Input.Keys.BACK) {
+            game.setScreen(new MainMenuScreen(game));
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean keyUp(int keycode) {
+        return false;
+    }
+
+    @Override
+    public boolean keyTyped(char character) {
+        return false;
+    }
+
+    @Override
+    public boolean scrolled(float amountX, float amountY) {
+        return false;
     }
 
     @Override
@@ -201,26 +221,9 @@ public class GameOverScreen implements Screen {
     public void resume() {}
 
     @Override
-    public void dispose() {}
-
-    // 触摸处理（由 InputAdapter 调用）
-    public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-        float touchY = Gdx.graphics.getHeight() - screenY;
-
-        // 检查重新开始按钮
-        if (screenX >= restartBtnX && screenX <= restartBtnX + restartBtnW &&
-            touchY >= restartBtnY && touchY <= restartBtnY + restartBtnH) {
-            game.setScreen(new GameScreen(game, gameMode));
-            return true;
+    public void dispose() {
+        if (shapeRenderer != null) {
+            shapeRenderer.dispose();
         }
-
-        // 检查返回菜单按钮
-        if (screenX >= menuBtnX && screenX <= menuBtnX + menuBtnW &&
-            touchY >= menuBtnY && touchY <= menuBtnY + menuBtnH) {
-            game.setScreen(new MainMenuScreen(game));
-            return true;
-        }
-
-        return false;
     }
 }

@@ -1,277 +1,233 @@
 package com.ballbattle;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 
 /**
- * 玩家球类 - 包含位置、大小、移动、分裂、加速等核心逻辑
+ * 玩家球 - 包含位置、半径、颜色、速度、分裂等逻辑
  */
 public class Player {
+    public static final float INITIAL_RADIUS = 25f;
+    public static final float MIN_RADIUS = 5f;
+    public static final float MAX_SPEED = 300f;
+    public static final float MIN_SPEED = 60f;
+    public static final float WORLD_WIDTH = 2000f;
+    public static final float WORLD_HEIGHT = 2000f;
 
     public float x;
     public float y;
     public float radius;
-    public float mass;
-    public Color color;
-    public String name;
+    public float r, g, b;
+    public float score;
     public boolean alive;
-    public int team; // -1表示无队伍，0=红队，1=蓝队
-    public int skinIndex;
-
-    // 移动相关
-    private float vx;
-    private float vy;
-    private float baseSpeed = 300f;
-    private float moveAngle = 0;
-    private boolean moving = false;
-
-    // 加速相关
-    private boolean boosting = false;
-    private static final float BOOST_MULTIPLIER = 2.0f;
-    private static final float BOOST_MASS_COST = 0.01f; // 每秒减少1%质量
+    public String name;
+    public float nameHue; // 用于显示名字颜色
 
     // 分裂相关
-    private static final float MIN_SPLIT_RADIUS = 40f;
-    private static final float SPLIT_SPEED = 500f;
+    public boolean isSplit;
+    public float splitTimer;
+    public static final float SPLIT_COOLDOWN = 3f;
+    public float splitX;
+    public float splitY;
+    public float splitRadius;
+    public boolean hasSplitBall;
+    public float splitMergeTimer;
 
-    // 统计
-    public int score;
-    public float maxRadius;
-    public float survivalTime;
+    // 移动方向
+    protected float moveDirX;
+    protected float moveDirY;
 
-    // 初始半径
-    private static final float INITIAL_RADIUS = 30f;
+    public Player() {
+        this.radius = INITIAL_RADIUS;
+        this.alive = true;
+        this.score = 0;
+        this.isSplit = false;
+        this.splitTimer = 0;
+        this.hasSplitBall = false;
+        this.splitMergeTimer = 0;
+        this.moveDirX = 0;
+        this.moveDirY = 0;
+    }
 
-    // 世界尺寸（动态，支持生存模式缩小）
-    protected float worldWidth;
-    protected float worldHeight;
-
-    public Player(float x, float y, String name, int skinIndex) {
+    public void init(float x, float y, float hue, String name) {
         this.x = x;
         this.y = y;
         this.radius = INITIAL_RADIUS;
-        this.mass = radius * radius;
-        this.name = name;
-        this.skinIndex = skinIndex;
-        String[] colors = BallBattleGame.SKIN_COLORS;
-        if (colors != null && colors.length > 0) {
-            this.color = colorFromHex(colors[Math.abs(skinIndex) % colors.length]);
-        } else {
-            this.color = Color.WHITE;
-        }
         this.alive = true;
-        this.team = -1;
         this.score = 0;
-        this.maxRadius = INITIAL_RADIUS;
-        this.survivalTime = 0;
-        this.vx = 0;
-        this.vy = 0;
-        this.worldWidth = BallBattleGame.WORLD_WIDTH;
-        this.worldHeight = BallBattleGame.WORLD_HEIGHT;
+        this.isSplit = false;
+        this.hasSplitBall = false;
+        this.splitTimer = 0;
+        this.splitMergeTimer = 0;
+        this.nameHue = hue;
+        this.name = name;
+        this.moveDirX = 0;
+        this.moveDirY = 0;
+        setColorFromHue(hue);
     }
 
-    /**
-     * 设置队伍
-     * @param team 0=红队，1=蓝队
-     */
-    public void setTeam(int team) {
-        this.team = team;
-        if (team == 0) {
-            this.color = new Color(0.9f, 0.3f, 0.3f, 1f);
-        } else if (team == 1) {
-            this.color = new Color(0.3f, 0.3f, 0.9f, 1f);
+    protected void setColorFromHue(float hue) {
+        float h = hue % 360f;
+        float s = 0.8f;
+        float v = 0.9f;
+        float c = v * s;
+        float x = c * (1 - Math.abs(((h / 60f) % 2f) - 1f));
+        float m = v - c;
+        float rr, gg, bb;
+        if (h < 60) {
+            rr = c; gg = x; bb = 0;
+        } else if (h < 120) {
+            rr = x; gg = c; bb = 0;
+        } else if (h < 180) {
+            rr = 0; gg = c; bb = x;
+        } else if (h < 240) {
+            rr = 0; gg = x; bb = c;
+        } else if (h < 300) {
+            rr = x; gg = 0; bb = c;
+        } else {
+            rr = c; gg = 0; bb = x;
+        }
+        this.r = rr + m;
+        this.g = gg + m;
+        this.b = bb + m;
+    }
+
+    public void setMoveDirection(float dirX, float dirY) {
+        float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
+        if (len > 0.01f) {
+            this.moveDirX = dirX / len;
+            this.moveDirY = dirY / len;
+        } else {
+            this.moveDirX = 0;
+            this.moveDirY = 0;
         }
     }
 
-    /**
-     * 更新玩家状态
-     * @param delta 时间增量（秒）
-     */
+    public float getSpeed() {
+        float ratio = Math.max(0.01f, radius / INITIAL_RADIUS);
+        float speed = MAX_SPEED / ratio;
+        return Math.max(MIN_SPEED, Math.min(MAX_SPEED, speed));
+    }
+
     public void update(float delta) {
         if (!alive) return;
 
-        survivalTime += delta;
-
-        // 计算速度（越大越慢）
-        float radiusRatio = radius / INITIAL_RADIUS;
-        if (radiusRatio <= 0.01f) radiusRatio = 0.01f;
-        float speed = baseSpeed * (1.0f / (float) Math.sqrt(radiusRatio));
-        if (boosting && mass > INITIAL_RADIUS * INITIAL_RADIUS * 0.5f) {
-            speed *= BOOST_MULTIPLIER;
-            // 加速消耗质量
-            mass *= (1.0f - BOOST_MASS_COST * delta);
-            updateRadiusFromMass();
+        // 更新分裂冷却
+        if (splitTimer > 0) {
+            splitTimer -= delta;
+            if (splitTimer < 0) splitTimer = 0;
         }
 
-        // 移动
-        if (moving) {
-            vx = (float) Math.cos(moveAngle) * speed;
-            vy = (float) Math.sin(moveAngle) * speed;
+        // 移动主球
+        float speed = getSpeed();
+        x += moveDirX * speed * delta;
+        y += moveDirY * speed * delta;
+
+        // 边界限制
+        x = Math.max(radius, Math.min(WORLD_WIDTH - radius, x));
+        y = Math.max(radius, Math.min(WORLD_HEIGHT - radius, y));
+
+        // 分裂球移动
+        if (hasSplitBall) {
+            splitMergeTimer -= delta;
+            // 分裂球也向同方向移动，但稍慢
+            splitX += moveDirX * speed * 0.8f * delta;
+            splitY += moveDirY * speed * 0.8f * delta;
+            splitX = Math.max(splitRadius, Math.min(WORLD_WIDTH - splitRadius, splitX));
+            splitY = Math.max(splitRadius, Math.min(WORLD_HEIGHT - splitRadius, splitY));
+
+            // 合并时间到了就合并
+            if (splitMergeTimer <= 0) {
+                mergeSplit();
+            }
+        }
+    }
+
+    public void trySplit() {
+        if (splitTimer > 0 || radius < INITIAL_RADIUS * 1.5f || hasSplitBall) return;
+
+        isSplit = true;
+        hasSplitBall = true;
+        splitTimer = SPLIT_COOLDOWN;
+        splitMergeTimer = 5f;
+
+        // 分裂球从主球位置射出
+        float splitRatio = 0.7f;
+        splitRadius = radius * splitRatio;
+        radius = radius * splitRatio;
+
+        // 向移动方向射出
+        float launchDist = radius + splitRadius + 20f;
+        if (Math.abs(moveDirX) < 0.01f && Math.abs(moveDirY) < 0.01f) {
+            splitX = x + launchDist;
+            splitY = y;
         } else {
-            // 减速
-            vx *= 0.9f;
-            vy *= 0.9f;
-        }
-
-        x += vx * delta;
-        y += vy * delta;
-
-        // 世界边界限制
-        clampToWorld();
-
-        // 更新最大半径
-        if (radius > maxRadius) {
-            maxRadius = radius;
-        }
-
-        // 自然缩小（非常缓慢）
-        if (radius > INITIAL_RADIUS) {
-            mass *= (1.0f - 0.001f * delta);
-            updateRadiusFromMass();
+            splitX = x + moveDirX * launchDist;
+            splitY = y + moveDirY * launchDist;
         }
     }
 
-    /**
-     * 设置移动方向
-     * @param angle 弧度
-     * @param isMoving 是否在移动
-     */
-    public void setMoveDirection(float angle, boolean isMoving) {
-        this.moveAngle = angle;
-        this.moving = isMoving;
+    private void mergeSplit() {
+        if (!hasSplitBall) return;
+        // 合并面积
+        float area1 = radius * radius;
+        float area2 = splitRadius * splitRadius;
+        float totalArea = area1 + area2;
+        radius = Math.max(MIN_RADIUS, (float) Math.sqrt(totalArea));
+        hasSplitBall = false;
+        isSplit = false;
     }
 
-    /**
-     * 设置加速状态
-     * @param boosting 是否加速
-     */
-    public void setBoosting(boolean boosting) {
-        this.boosting = boosting;
+    public void addScore(float amount) {
+        this.score += amount;
+        // 面积增长
+        float area = radius * radius + amount * 0.5f;
+        radius = Math.max(MIN_RADIUS, (float) Math.sqrt(area));
     }
 
-    /**
-     * 尝试分裂
-     * @return 分裂出的新Player，如果不能分裂返回null
-     */
-    public Player split() {
-        if (radius < MIN_SPLIT_RADIUS) return null;
-
-        float halfMass = mass / 2f;
-        mass = halfMass;
-        updateRadiusFromMass();
-
-        Player splitBall = new Player(x, y, name, skinIndex);
-        splitBall.mass = halfMass;
-        splitBall.updateRadiusFromMass();
-        splitBall.team = this.team;
-        if (team == 0) {
-            splitBall.color = new Color(0.9f, 0.3f, 0.3f, 1f);
-        } else if (team == 1) {
-            splitBall.color = new Color(0.3f, 0.3f, 0.9f, 1f);
-        }
-
-        // 向移动方向弹射
-        float angle = moving ? moveAngle : (float) Math.random() * MathUtils.PI2;
-        splitBall.x = x + (float) Math.cos(angle) * radius * 2;
-        splitBall.y = y + (float) Math.sin(angle) * radius * 2;
-        splitBall.vx = (float) Math.cos(angle) * SPLIT_SPEED;
-        splitBall.vy = (float) Math.sin(angle) * SPLIT_SPEED;
-
-        return splitBall;
-    }
-
-    /**
-     * 吃食物
-     * @param food 被吃的食物
-     */
-    public void eatFood(Food food) {
-        mass += food.mass;
-        score += 10;
-        updateRadiusFromMass();
-        food.setAlive(false);
-    }
-
-    /**
-     * 吞噬另一个球
-     * @param other 被吞噬的球
-     */
-    public void eatBall(Player other) {
-        mass += other.mass * 0.8f;
-        score += (int) (other.mass / 10f);
-        updateRadiusFromMass();
-        other.alive = false;
-    }
-
-    /**
-     * 检查是否能吞噬另一个球
-     * @param other 另一个球
-     * @return 是否能吞噬
-     */
     public boolean canEat(Player other) {
-        if (!other.alive) return false;
-        if (this.team >= 0 && this.team == other.team) return false; // 同队不能互吃
-        if (this.radius <= other.radius * 1.1f) return false; // 必须比对方大10%以上
-
-        float dx = this.x - other.x;
-        float dy = this.y - other.y;
-        float dist = (float) Math.sqrt(dx * dx + dy * dy);
-        return dist < this.radius * 0.8f;
+        if (other == null || !other.alive || !this.alive) return false;
+        float dist = Vector2.dst(this.x, this.y, other.x, other.y);
+        return this.radius > other.radius * 1.15f && dist < this.radius - other.radius * 0.4f;
     }
 
-    /**
-     * 检查是否能吃到食物
-     * @param food 食物
-     * @return 是否能吃
-     */
+    public boolean canEatSplit(Player other) {
+        if (other == null || !other.alive || !this.alive) return false;
+        float dist = Vector2.dst(this.x, this.y, other.splitX, other.splitY);
+        return this.radius > other.splitRadius * 1.15f && dist < this.radius - other.splitRadius * 0.4f;
+    }
+
     public boolean canEatFood(Food food) {
-        if (!food.isAlive()) return false;
-        float dx = this.x - food.x;
-        float dy = this.y - food.y;
-        float dist = (float) Math.sqrt(dx * dx + dy * dy);
+        if (food == null || !food.alive || !this.alive) return false;
+        float dist = Vector2.dst(this.x, this.y, food.x, food.y);
         return dist < this.radius;
     }
 
-    private void updateRadiusFromMass() {
-        radius = (float) Math.sqrt(mass);
-        if (radius < 10f) radius = 10f;
+    public boolean splitCanEatFood(Food food) {
+        if (food == null || !food.alive || !this.alive || !this.hasSplitBall) return false;
+        float dist = Vector2.dst(this.splitX, this.splitY, food.x, food.y);
+        return dist < this.splitRadius;
     }
 
-    private void clampToWorld() {
-        if (x - radius < 0) { x = radius; vx = 0; }
-        if (x + radius > worldWidth) { x = worldWidth - radius; vx = 0; }
-        if (y - radius < 0) { y = radius; vy = 0; }
-        if (y + radius > worldHeight) { y = worldHeight - radius; vy = 0; }
-    }
-
-    /**
-     * 从十六进制颜色字符串创建Color
-     */
-    public static Color colorFromHex(String hex) {
-        if (hex == null || hex.length() < 6) {
-            return Color.WHITE;
+    public float getTotalRadius() {
+        if (hasSplitBall) {
+            float area = radius * radius + splitRadius * splitRadius;
+            return (float) Math.sqrt(area);
         }
-        try {
-            int r = Integer.parseInt(hex.substring(0, 2), 16);
-            int g = Integer.parseInt(hex.substring(2, 4), 16);
-            int b = Integer.parseInt(hex.substring(4, 6), 16);
-            return new Color(r / 255f, g / 255f, b / 255f, 1f);
-        } catch (Exception e) {
-            return Color.WHITE;
-        }
+        return radius;
     }
 
-    public float getVx() { return vx; }
-    public float getVy() { return vy; }
-    public void setVx(float vx) { this.vx = vx; }
-    public void setVy(float vy) { this.vy = vy; }
-    public boolean isBoosting() { return boosting; }
+    public float getCenterX() {
+        if (hasSplitBall) {
+            return (x + splitX) * 0.5f;
+        }
+        return x;
+    }
 
-    /**
-     * 设置世界尺寸（用于生存模式地图缩小）
-     */
-    public void setWorldSize(float worldWidth, float worldHeight) {
-        this.worldWidth = worldWidth;
-        this.worldHeight = worldHeight;
+    public float getCenterY() {
+        if (hasSplitBall) {
+            return (y + splitY) * 0.5f;
+        }
+        return y;
     }
 }

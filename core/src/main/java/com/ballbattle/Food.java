@@ -1,43 +1,62 @@
 package com.ballbattle;
 
-import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.math.MathUtils;
 
 /**
- * 食物类 - 游戏中被球吞噬的小圆点
+ * 食物 - 小彩色圆点，被玩家/AI吃掉后增长
  */
 public class Food {
-
     public float x;
     public float y;
     public float radius;
-    public Color color;
+    public float colorHue;
+    public float colorSaturation;
+    public float colorValue;
+    public float r, g, b;
     public boolean alive;
-    public float mass;
 
-    private static final float MIN_RADIUS = 5f;
-    private static final float MAX_RADIUS = 10f;
+    public Food() {
+        this.alive = false;
+    }
 
-    public Food(float x, float y) {
-        this.x = x;
-        this.y = y;
-        this.radius = MIN_RADIUS + (float) Math.random() * (MAX_RADIUS - MIN_RADIUS);
-        this.mass = radius * radius;
-        this.color = randomColor();
+    public void spawn(float worldWidth, float worldHeight) {
+        this.x = MathUtils.random(10f, Math.max(11f, worldWidth - 10f));
+        this.y = MathUtils.random(10f, Math.max(11f, worldHeight - 10f));
+        this.radius = MathUtils.random(5f, 8f);
+        this.colorHue = MathUtils.random(0f, 360f);
+        this.colorSaturation = 0.7f;
+        this.colorValue = 0.9f;
+        hsvToRgb();
         this.alive = true;
     }
 
-    private Color randomColor() {
-        float hue = (float) Math.random();
-        Color tmpColor = new Color();
-        tmpColor.fromHsv(hue, 0.7f, 0.9f);
-        return tmpColor;
+    private void hsvToRgb() {
+        float h = this.colorHue;
+        float s = this.colorSaturation;
+        float v = this.colorValue;
+        float c = v * s;
+        float x = c * (1 - Math.abs(((h / 60f) % 2f) - 1f));
+        float m = v - c;
+        float rr, gg, bb;
+        if (h < 60) {
+            rr = c; gg = x; bb = 0;
+        } else if (h < 120) {
+            rr = x; gg = c; bb = 0;
+        } else if (h < 180) {
+            rr = 0; gg = c; bb = x;
+        } else if (h < 240) {
+            rr = 0; gg = x; bb = c;
+        } else if (h < 300) {
+            rr = x; gg = 0; bb = c;
+        } else {
+            rr = c; gg = 0; bb = x;
+        }
+        this.r = rr + m;
+        this.g = gg + m;
+        this.b = bb + m;
     }
 
-    public void setAlive(boolean alive) {
-        this.alive = alive;
-    }
-
-    public boolean isAlive() {
-        return alive;
+    public void respawn(float worldWidth, float worldHeight) {
+        spawn(worldWidth, worldHeight);
     }
 }
